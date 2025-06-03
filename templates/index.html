@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumonia Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        .upload-button:hover {
+            background-color: #0056b3;
+        }
+        #predictButton {
+            background-color: #28a745;
+            margin-top: 15px;
+            display: none; /* Hidden until an image is loaded */
+        }
+        #predictButton:hover {
+            background-color: #218838;
+        }
+        #imagePreviewContainer {
+            margin-top: 20px;
+            border: 2px dashed #ccc;
+            padding: 15px;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #666;
+            font-style: italic;
+            border-radius: 5px;
+        }
+        #imagePreview {
+            max-width: 100%;
+            max-height: 250px;
+            height: auto;
+            display: none;
+            border-radius: 5px;
+        }
+        #result {
+            margin-top: 25px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pneumonia Detection from Chest X-Ray</h1>
+        <label for="imageUpload" class="upload-button">
+            Choose Image
+        </label>
+        <input type="file" id="imageUpload" accept="image/*">
+
+        <div id="imagePreviewContainer">
+            <p id="placeholderText">No image selected</p>
+            <img id="imagePreview" src="#" alt="Image Preview">
+        </div>
+
+        <button id="predictButton" class="upload-button">Predict</button>
+
+        <div class="loader" id="loader"></div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const placeholderText = document.getElementById('placeholderText');
+        const predictButton = document.getElementById('predictButton');
+        const resultDiv = document.getElementById('result');
+        const loader = document.getElementById('loader');
+
+        let selectedFile = null;
+
+        imageUpload.addEventListener('change', function(event) {
+            selectedFile = event.target.files[0];
+            if (selectedFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    placeholderText.style.display = 'none';
+                    predictButton.style.display = 'inline-block'; // Show predict button
+                    resultDiv.textContent = ''; // Clear previous result
+                };
+                reader.readAsDataURL(selectedFile);
+            } else {
+                imagePreview.src = '#';
+                imagePreview.style.display = 'none';
+                placeholderText.style.display = 'block';
+                predictButton.style.display = 'none'; // Hide predict button
+                resultDiv.textContent = '';
+            }
+        });
+
+        predictButton.addEventListener('click', async function() {
+            if (!selectedFile) {
+                alert('Please select an image first!');
+                return;
+            }
+
+            resultDiv.textContent = '';
+            loader.style.display = 'block'; // Show loader
+            predictButton.disabled = true; // Disable button during prediction
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `Prediction: <strong>${data.prediction}</strong><br>Confidence: ${data.confidence}`;
+                    if (data.image) { // If backend sends image, display it (useful for debugging/confirming)
+                        imagePreview.src = data.image; // Update preview with potentially processed image
+                    }
+                } else {
+                    resultDiv.textContent = `Error: ${data.error}`;
+                    resultDiv.style.color = 'red';
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                resultDiv.textContent = 'An error occurred while connecting to the server.';
+                resultDiv.style.color = 'red';
+            } finally {
+                loader.style.display = 'none'; // Hide loader
+                predictButton.disabled = false; // Re-enable button
+            }
+        });
+    </script>
+</body>
+</html>
